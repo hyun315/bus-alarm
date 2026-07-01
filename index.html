@@ -760,6 +760,7 @@ function computeTrack(lineId, stationName, item){
   const dir = destIndex < i ? -1 : 1; // 목적지 쪽으로 가는 방향
   const prev = order[i - dir] || null;      // 전역 (목적지 반대쪽 = 열차가 온 방향)
   const prevPrev = order[i - dir * 2] || null; // 전전역
+  const next = order[i + dir] || null;      // 우리 역 다음 정거장 (목적지 방향으로 진행)
 
   const rawMsg = (item.arvlMsg2 || item.arvlMsg3 || '').trim();
   let trainAt = null;
@@ -774,8 +775,8 @@ function computeTrack(lineId, stationName, item){
     else if(parsed.dest === prevPrev) trainAt = 'prevPrev';
   }
 
-  if(!trainAt) return { prev, prevPrev, trainAt: null }; // 정확한 위치를 못 찾아도 그림은 항상 보여줌 (열차는 '이동중'으로 표시)
-  return { prev, prevPrev, trainAt };
+  if(!trainAt) return { prev, prevPrev, next, trainAt: null }; // 정확한 위치를 못 찾아도 그림은 항상 보여줌 (열차는 '이동중'으로 표시)
+  return { prev, prevPrev, next, trainAt };
 }
 
 function buildTrackHtml(track, stationName){
@@ -1065,11 +1066,14 @@ function buildSubwayRow(lineId, isUp, item, stationName){
   if(item){
     const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
     dest = item.trainLineNm || parsed.dest || '정보 없음';
-    nextText = parsed.dest ? `${parsed.dest} 방면` : '&nbsp;';
     time = parsed.time;
 
     const track = computeTrack(lineId, stationName, item);
     if(track) trackHtml = buildTrackHtml(track, stationName);
+
+    // '방면'은 열차의 현재 위치가 아니라 우리 역 다음 정거장을 표시 (노선 데이터가 있으면 정확한 다음역, 없으면 API 메시지 값으로 대체)
+    const nextName = (track && track.next) ? track.next : parsed.dest;
+    nextText = nextName ? `${nextName} 방면` : '&nbsp;';
   }
 
   row.innerHTML = `
