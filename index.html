@@ -19,6 +19,7 @@
     --card:#FFFFFF;
     --line:#DCE3EA;
     --danger:#C74B3F;
+    --line3:#EF7C1C;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
@@ -209,6 +210,66 @@
     color:#5F84A6;
   }
 
+  /* ---- 지하철 전광판 스타일 ---- */
+  .subway-board{
+    background:#0A0A0C;
+    border-radius:18px;
+    border:1px solid #1E1E22;
+    overflow:hidden;
+  }
+  .subway-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:18px 18px;
+    border-bottom:1px solid #1C1C20;
+  }
+  .subway-row:last-of-type{ border-bottom:none; }
+  .subway-dir{
+    flex-shrink:0;
+    width:50px;
+    height:50px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    font-size:13px;
+    color:#fff;
+  }
+  .subway-dir-up{ background:var(--line3, #EF7C1C); }
+  .subway-dir-down{ background:#3B4A5A; }
+  .subway-info{ flex:1; min-width:0; }
+  .subway-dest{
+    font-size:16px;
+    font-weight:700;
+    color:#fff;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .subway-next{
+    font-size:11px;
+    color:#7C828C;
+    margin-top:3px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .subway-time{
+    flex-shrink:0;
+    font-family:'DM Mono', monospace;
+    font-size:24px;
+    font-weight:600;
+    color:var(--amber);
+    text-align:right;
+    min-width:60px;
+  }
+  #mUpdatedSubway{
+    padding:8px 18px 14px;
+    margin-top:0;
+  }
+
   .status-row{
     display:flex;
     justify-content:space-between;
@@ -325,11 +386,31 @@
     <div class="badge"><span class="dot"></span><span id="mRoute">506</span></div>
     <div class="stop-name"><span id="mLocationLabel">정류소</span> <span id="mArsId">23150</span></div>
 
-    <div class="signage">
+    <div class="signage" id="busSignage">
       <div class="signage-label">도착 정보</div>
       <div class="signage-msg" id="mMsg">확인 중…</div>
       <div class="signage-sub" id="mSub">&nbsp;</div>
       <div class="signage-updated" id="mUpdated">아직 확인 전</div>
+    </div>
+
+    <div class="subway-board hidden" id="subwaySignage">
+      <div class="subway-row" id="upRow">
+        <div class="subway-dir subway-dir-up">상행</div>
+        <div class="subway-info">
+          <div class="subway-dest" id="upDest">확인 중…</div>
+          <div class="subway-next" id="upNext">&nbsp;</div>
+        </div>
+        <div class="subway-time" id="upTime">-</div>
+      </div>
+      <div class="subway-row" id="downRow">
+        <div class="subway-dir subway-dir-down">하행</div>
+        <div class="subway-info">
+          <div class="subway-dest" id="downDest">확인 중…</div>
+          <div class="subway-next" id="downNext">&nbsp;</div>
+        </div>
+        <div class="subway-time" id="downTime">-</div>
+      </div>
+      <div class="signage-updated" id="mUpdatedSubway">아직 확인 전</div>
     </div>
 
     <div class="status-row">
@@ -429,6 +510,27 @@ async function checkBus(settings){
   }
 }
 
+function parseArrival(msg){
+  // 예: "4분 후 (압구정)" / "10분 30초 후 (고속터미널)" / "전역 출발" / "곧 도착"
+  if(!msg) return { time: '-', dest: '' };
+  const m = msg.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if(m) return { time: m[1].trim(), dest: m[2].trim() };
+  return { time: msg.trim(), dest: '' };
+}
+
+function setSubwayRow(prefix, item){
+  if(!item){
+    $(`${prefix}Dest`).textContent = '정보 없음';
+    $(`${prefix}Next`).textContent = '';
+    $(`${prefix}Time`).textContent = '-';
+    return;
+  }
+  const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
+  $(`${prefix}Dest`).textContent = item.trainLineNm || parsed.dest || '';
+  $(`${prefix}Next`).textContent = parsed.dest ? `${parsed.dest} 방면` : '';
+  $(`${prefix}Time`).textContent = parsed.time;
+}
+
 async function checkSubway(settings){
   const base = settings.apiBase ? settings.apiBase.replace(/\/$/, '') : '';
   const url = `${base}/api/subway?station=${encodeURIComponent(settings.station)}&line=${encodeURIComponent(settings.line)}`;
@@ -438,8 +540,10 @@ async function checkSubway(settings){
     const data = await res.json();
 
     if(!data.ok){
-      $('mMsg').textContent = '오류';
-      $('mSub').textContent = data.error || '알 수 없는 오류';
+      setSubwayRow('up', null);
+      setSubwayRow('down', null);
+      $('upDest').textContent = '오류';
+      $('upNext').textContent = data.error || '알 수 없는 오류';
       addLog(data.error || '조회 실패', true);
       return;
     }
@@ -448,26 +552,27 @@ async function checkSubway(settings){
     const up = items.find(it => (it.updnLine || '').includes('상행'));
     const down = items.find(it => (it.updnLine || '').includes('하행'));
 
-    const upMsg = up ? (up.arvlMsg2 || up.arvlMsg3 || '정보 없음') : '정보 없음';
-    const downMsg = down ? (down.arvlMsg2 || down.arvlMsg3 || '정보 없음') : '정보 없음';
-
     if(!up && !down){
-      $('mMsg').textContent = '정보 없음';
-      $('mSub').textContent = '상행/하행 도착 정보를 찾지 못했어요';
+      setSubwayRow('up', null);
+      setSubwayRow('down', null);
       addLog('지하철 도착정보 없음', true);
       return;
     }
 
-    $('mMsg').textContent = `상행 ${upMsg}`;
-    $('mSub').textContent = `하행 ${downMsg}`;
-    $('mUpdated').textContent = `${new Date().toTimeString().slice(0,8)} 기준`;
+    setSubwayRow('up', up);
+    setSubwayRow('down', down);
+    $('mUpdatedSubway').textContent = `${new Date().toTimeString().slice(0,8)} 기준`;
 
-    addLog(`상행 ${upMsg} · 하행 ${downMsg}`);
-    notify(`🚇 ${settings.station}역`, `상행 ${upMsg} / 하행 ${downMsg}`);
+    const upSummary = up ? (up.arvlMsg2 || up.arvlMsg3 || '정보 없음') : '정보 없음';
+    const downSummary = down ? (down.arvlMsg2 || down.arvlMsg3 || '정보 없음') : '정보 없음';
+    addLog(`상행 ${upSummary} · 하행 ${downSummary}`);
+    notify(`🚇 ${settings.station}역`, `상행 ${upSummary} / 하행 ${downSummary}`);
 
   }catch(e){
-    $('mMsg').textContent = '연결 실패';
-    $('mSub').textContent = '프록시 서버 주소를 확인해주세요';
+    setSubwayRow('up', null);
+    setSubwayRow('down', null);
+    $('upDest').textContent = '연결 실패';
+    $('upNext').textContent = '프록시 서버 주소를 확인해주세요';
     addLog('네트워크 오류: ' + e.message, true);
   }
 }
@@ -501,11 +606,15 @@ function startMonitoring(settings){
     $('mLocationLabel').textContent = '지하철역';
     $('mArsId').textContent = settings.station + '역';
     presetKey = `subway_${settings.station}_${settings.line}`;
+    $('busSignage').classList.add('hidden');
+    $('subwaySignage').classList.remove('hidden');
   } else {
     $('mRoute').textContent = settings.routeNum + '번';
     $('mLocationLabel').textContent = '정류소';
     $('mArsId').textContent = settings.arsId;
     presetKey = `bus_${settings.arsId}_${settings.routeNum}`;
+    $('subwaySignage').classList.add('hidden');
+    $('busSignage').classList.remove('hidden');
   }
   $('mInterval').textContent = settings.interval + '분';
 
