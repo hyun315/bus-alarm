@@ -36,8 +36,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'arsId 쿼리 파라미터가 필요합니다.' });
   }
 
+  const trimmedKey = key.trim();
   // 주의: 이 API는 파라미터명 대소문자를 구분합니다 (ServiceKey, 소문자 serviceKey 아님)
-  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?ServiceKey=${key}&arsId=${encodeURIComponent(
+  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?ServiceKey=${trimmedKey}&arsId=${encodeURIComponent(
     arsId
   )}`;
 
@@ -46,7 +47,18 @@ export default async function handler(req, res) {
     const xml = await upstream.text();
 
     if (req.query.debug) {
-      return res.status(200).json({ ok: true, debug: true, status: upstream.status, raw: xml.slice(0, 3000) });
+      return res.status(200).json({
+        ok: true,
+        debug: true,
+        status: upstream.status,
+        raw: xml.slice(0, 3000),
+        keyCheck: {
+          length: key.length,
+          trimmedLength: trimmedKey.length,
+          hasWhitespace: key !== trimmedKey,
+          preview: key.slice(0, 6) + '...' + key.slice(-4),
+        },
+      });
     }
 
     const headerCd = getTag(xml, 'headerCd');
