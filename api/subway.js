@@ -3,15 +3,27 @@
 // 주의: 이 API는 data.go.kr 키가 아니라 data.seoul.go.kr에서 발급받는
 // "실시간 지하철 인증키"가 별도로 필요합니다. (환경변수: SUBWAY_SERVICE_KEY)
 
-async function fetchWithRetry(url, options, retries = 1) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchWithRetry(url, options, attempts = [13000, 13000]) {
+  let lastErr;
+  for (let i = 0; i < attempts.length; i++) {
     try {
-      return await fetch(url, options);
+      return await fetchWithTimeout(url, options, attempts[i]);
     } catch (e) {
-      if (attempt === retries) throw e;
-      await new Promise((r) => setTimeout(r, 500));
+      lastErr = e;
+      if (i < attempts.length - 1) await new Promise((r) => setTimeout(r, 300));
     }
   }
+  throw lastErr;
 }
 
 export default async function handler(req, res) {
@@ -39,17 +51,12 @@ export default async function handler(req, res) {
   )}`;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
     const upstream = await fetchWithRetry(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
         Accept: '*/*',
       },
-      signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     const text = await upstream.text();
 
