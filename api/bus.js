@@ -18,6 +18,17 @@ function parseItems(xml) {
   }));
 }
 
+async function fetchWithRetry(url, options, retries = 1) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (e) {
+      if (attempt === retries) throw e;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -43,7 +54,17 @@ export default async function handler(req, res) {
   )}`;
 
   try {
-    const upstream = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const upstream = await fetchWithRetry(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        Accept: '*/*',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     const xml = await upstream.text();
 
     if (req.query.debug) {
