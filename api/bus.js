@@ -1,6 +1,22 @@
-// /api/bus?arsId=12345&rt=506
-// 서울시 정류소별 도착예정정보 API를 서버에서 대신 호출해서 CORS 문제를 없애고
-// 인증키(BUS_SERVICE_KEY)를 클라이언트에 노출시키지 않기 위한 프록시입니다.
+// /api/bus?arsId=12345
+// 서울시 정류소별 도착예정정보 API(XML 전용)를 서버에서 호출해
+// 1) CORS 문제를 없애고 2) 인증키를 클라이언트에 노출하지 않고 3) XML을 JSON으로 변환해줍니다.
+
+function getTag(block, tag) {
+  const m = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return m ? m[1].trim() : '';
+}
+
+function parseItems(xml) {
+  const blocks = xml.match(/<itemList>[\s\S]*?<\/itemList>/gi) || [];
+  return blocks.map((b) => ({
+    rtNm: getTag(b, 'rtNm'),
+    arsId: getTag(b, 'arsId'),
+    adirection: getTag(b, 'adirection'),
+    arrmsg1: getTag(b, 'arrmsg1'),
+    arrmsg2: getTag(b, 'arrmsg2'),
+  }));
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,39 +29,30 @@ export default async function handler(req, res) {
   if (!key) {
     return res.status(500).json({
       ok: false,
-      error: 'BUS_SERVICE_KEY 환경변수가 설정되지 않았습니다. Vercel 프로젝트 Settings > Environment Variables 에서 추가해주세요.',
+      error: 'BUS_SERVICE_KEY 환경변수가 설정되지 않았습니다. Vercel Settings > Environment Variables 에서 추가해주세요.',
     });
   }
   if (!arsId) {
     return res.status(400).json({ ok: false, error: 'arsId 쿼리 파라미터가 필요합니다.' });
   }
 
-  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUidItem?serviceKey=${key}&arsId=${encodeURIComponent(
+  // 주의: 이 API는 파라미터명 대소문자를 구분합니다 (ServiceKey, 소문자 serviceKey 아님)
+  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUidItem?ServiceKey=${key}&arsId=${encodeURIComponent(
     arsId
-  )}&resultType=json`;
+  )}`;
 
   try {
     const upstream = await fetch(url);
-    const text = await upstream.text();
+    const xml = await upstream.text();
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // 키가 잘못됐거나 서비스 오류일 때 XML 에러 메시지가 오는 경우가 있음
-      return res.status(502).json({
-        ok: false,
-        error: '서울시 버스 API가 JSON이 아닌 응답을 반환했습니다 (인증키를 확인해주세요).',
-        raw: text.slice(0, 500),
-      });
+    const headerCd = getTag(xml, 'headerCd');
+    const headerMsg = getTag(xml, 'headerMsg');
+
+    if (headerCd && headerCd !== '0') {
+      return res.status(502).json({ ok: false, error: headerMsg || '버스 API 오류', code: headerCd });
     }
 
-    const header = data?.msgHeader;
-    if (header && header.headerCd && header.headerCd !== '0') {
-      return res.status(502).json({ ok: false, error: header.headerMsg || '버스 API 오류', code: header.headerCd });
-    }
-
-    const items = data?.msgBody?.itemList || [];
+    const items = parseItems(xml);
     return res.status(200).json({ ok: true, items });
   } catch (e) {
     return res.status(500).json({ ok: false, error: '버스 API 호출 실패', detail: String(e) });
