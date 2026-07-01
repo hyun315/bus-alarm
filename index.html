@@ -460,6 +460,60 @@
     margin-top:0;
   }
 
+  .subway-track{
+    display:flex;
+    align-items:center;
+    padding:6px 18px 16px 82px;
+    gap:0;
+  }
+  .track-stop{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .track-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#3B3F46;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:14px;
+    position:relative;
+  }
+  .track-stop.is-here .track-dot{
+    width:14px;
+    height:14px;
+    background:var(--amber);
+  }
+  .track-dot.has-train{
+    width:26px;
+    height:26px;
+    background:transparent;
+    font-size:20px;
+    animation:trainPulse 1s ease-in-out infinite;
+  }
+  @keyframes trainPulse{
+    0%,100%{ transform:scale(1); }
+    50%{ transform:scale(1.12); }
+  }
+  .track-label{
+    font-size:10px;
+    color:#8A8F98;
+    white-space:nowrap;
+  }
+  .track-stop.is-here .track-label{ color:#fff; font-weight:700; }
+  .track-line{
+    flex:1;
+    height:2px;
+    background:#2A2D33;
+    min-width:24px;
+    margin:0 -2px;
+  }
+
   .status-row{
     display:flex;
     justify-content:space-between;
@@ -670,6 +724,48 @@ function fillSetupFromSettings(s){
 const PRESETS_KEY = 'busAlarmPresets';
 const LINE_NAMES = {1001:'1호선',1002:'2호선',1003:'3호선',1004:'4호선',1005:'5호선',1006:'6호선',1007:'7호선',1008:'8호선',1009:'9호선'};
 const LINE_COLORS = {1001:'#0052A4',1002:'#00A84D',1003:'#EF7C1C',1004:'#00A5DE',1005:'#996CAC',1006:'#CD7C2F',1007:'#747F00',1008:'#E6186C',1009:'#BDB092'};
+
+// 노선별 역 순서(인접 관계). 현재는 3호선만 정확히 검증됨(금호역 실측 데이터와 일치 확인).
+// 다른 호선은 필요할 때 검증 후 추가.
+const STATION_ORDER = {
+  1003: ['대화','주엽','정발산','마두','백석','대곡','화정','원당','원흥','삼송','지축','구파발','연신내','불광','녹번','홍제','무악재','독립문','경복궁','안국','종로3가','을지로3가','충무로','동대입구','약수','금호','옥수','압구정','신사','잠원','고속터미널','교대','남부터미널','양재','매봉','도곡','대치','학여울','대청','일원','수서','가락시장','경찰병원','오금'],
+};
+
+// 우리 역 기준 실제 도착 메시지에 담긴 '현재 위치 역명'을 이용해 전역/전전역을 계산.
+// (상행/하행 라벨의 실제 방향 규칙에 의존하지 않고, 역 순서 배열에서 인접한 역과 매칭되는지로 판단)
+function getTrackInfo(lineId, stationName, currentPosName){
+  const order = STATION_ORDER[lineId];
+  if(!order || !currentPosName) return null;
+  const i = order.indexOf(stationName);
+  if(i < 0) return null;
+
+  const leftPrev = order[i-1], leftPrevPrev = order[i-2];
+  const rightPrev = order[i+1], rightPrevPrev = order[i+2];
+
+  if(currentPosName === leftPrev || currentPosName === leftPrevPrev){
+    return { prevPrev: leftPrevPrev || null, prev: leftPrev, trainAt: currentPosName === leftPrev ? 'prev' : 'prevPrev' };
+  }
+  if(currentPosName === rightPrev || currentPosName === rightPrevPrev){
+    return { prevPrev: rightPrevPrev || null, prev: rightPrev, trainAt: currentPosName === rightPrev ? 'prev' : 'prevPrev' };
+  }
+  return null;
+}
+
+function buildTrackHtml(track, stationName){
+  const dots = [];
+  if(track.prevPrev) dots.push({ name: track.prevPrev, key:'prevPrev' });
+  dots.push({ name: track.prev, key:'prev' });
+  dots.push({ name: stationName, key:'here' });
+
+  const stopsHtml = dots.map((d) => `
+    <div class="track-stop ${d.key === 'here' ? 'is-here' : ''}">
+      <div class="track-dot ${d.key === track.trainAt ? 'has-train' : ''}">${d.key === track.trainAt ? '🚈' : ''}</div>
+      <div class="track-label">${d.name}</div>
+    </div>
+  `).join('<div class="track-line"></div>');
+
+  return `<div class="subway-track">${stopsHtml}</div>`;
+}
 
 const DEFAULT_PRESETS = [
   { id:'d1', mode:'bus', emoji:'🏠', label:'집으로', arsId:'02190', routeNum:'147' },
@@ -917,7 +1013,9 @@ function parseArrival(msg){
   return { time: msg.trim(), dest: '' };
 }
 
-function buildSubwayRow(lineId, isUp, item){
+function buildSubwayRow(lineId, isUp, item, stationName){
+  const wrap = document.createElement('div');
+
   const row = document.createElement('div');
   row.className = 'subway-row';
 
@@ -927,12 +1025,16 @@ function buildSubwayRow(lineId, isUp, item){
   let dest = '정보 없음';
   let nextText = '&nbsp;';
   let time = '-';
+  let trackHtml = '';
 
   if(item){
     const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
     dest = item.trainLineNm || parsed.dest || '정보 없음';
     nextText = parsed.dest ? `${parsed.dest} 방면` : '&nbsp;';
     time = parsed.time;
+
+    const track = getTrackInfo(lineId, stationName, parsed.dest);
+    if(track) trackHtml = buildTrackHtml(track, stationName);
   }
 
   row.innerHTML = `
@@ -944,10 +1046,16 @@ function buildSubwayRow(lineId, isUp, item){
     </div>
     <div class="subway-time">${time}</div>
   `;
-  return row;
+  wrap.appendChild(row);
+  if(trackHtml){
+    const trackWrap = document.createElement('div');
+    trackWrap.innerHTML = trackHtml;
+    wrap.appendChild(trackWrap.firstElementChild);
+  }
+  return wrap;
 }
 
-function renderSubwayRows(lineIds, grouped, errorMsg){
+function renderSubwayRows(lineIds, grouped, errorMsg, stationName){
   const container = $('subwayRows');
   container.innerHTML = '';
 
@@ -961,8 +1069,8 @@ function renderSubwayRows(lineIds, grouped, errorMsg){
 
   // 선택한 모든 호선에 대해 상행/하행 두 줄씩 항상 표시 (데이터 없으면 '정보 없음')
   lineIds.forEach(lineId => {
-    container.appendChild(buildSubwayRow(lineId, true, grouped[`${lineId}_up`]));
-    container.appendChild(buildSubwayRow(lineId, false, grouped[`${lineId}_down`]));
+    container.appendChild(buildSubwayRow(lineId, true, grouped[`${lineId}_up`], stationName));
+    container.appendChild(buildSubwayRow(lineId, false, grouped[`${lineId}_down`], stationName));
   });
 }
 
@@ -976,7 +1084,7 @@ async function checkSubway(settings){
     const data = await res.json();
 
     if(!data.ok){
-      renderSubwayRows(lineIds, {}, data.error || '알 수 없는 오류');
+      renderSubwayRows(lineIds, {}, data.error || '알 수 없는 오류', settings.station);
       addLog(data.error || '조회 실패', true);
       return;
     }
@@ -990,7 +1098,7 @@ async function checkSubway(settings){
       if(!grouped[key]) grouped[key] = it;
     });
 
-    renderSubwayRows(lineIds, grouped, null);
+    renderSubwayRows(lineIds, grouped, null, settings.station);
     $('mUpdatedSubway').textContent = `${new Date().toTimeString().slice(0,8)} 기준`;
 
     const summary = Object.keys(grouped).length
@@ -1005,7 +1113,7 @@ async function checkSubway(settings){
     if(Object.keys(grouped).length) notify(`🚇 ${settings.station}역`, summary);
 
   }catch(e){
-    renderSubwayRows(lineIds, {}, '프록시 서버 주소를 확인해주세요');
+    renderSubwayRows(lineIds, {}, '프록시 서버 주소를 확인해주세요', settings.station);
     addLog('네트워크 오류: ' + e.message, true);
   }
 }
