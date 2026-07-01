@@ -13,7 +13,7 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
-async function fetchWithRetry(url, options, attempts = [13000, 13000]) {
+async function fetchWithRetry(url, options, attempts = [9000, 9000, 9000]) {
   let lastErr;
   for (let i = 0; i < attempts.length; i++) {
     try {
