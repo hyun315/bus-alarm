@@ -122,6 +122,37 @@
     margin-top:10px;
   }
 
+  .preset-row{
+    display:flex;
+    gap:10px;
+  }
+  .btn-preset{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    padding:16px 8px;
+    background:#FAFBFC;
+    border:1.5px solid var(--line);
+    border-radius:14px;
+    transition:background .12s, border-color .12s;
+  }
+  .btn-preset:active{
+    background:#EAF2F9;
+    border-color:var(--route-blue);
+  }
+  .preset-emoji{ font-size:24px; margin-bottom:2px; }
+  .preset-name{ font-size:15px; font-weight:700; color:var(--navy); }
+  .preset-sub{ font-size:11px; color:var(--grey); font-family:'DM Mono', monospace; }
+
+  .preset-tag{
+    font-size:13px;
+    font-weight:700;
+    color:var(--route-blue);
+    margin-bottom:6px;
+  }
+
   /* ---- Monitor view : LED signage look ---- */
   .badge{
     display:inline-flex;
@@ -232,6 +263,22 @@
     </div>
 
     <div class="card">
+      <label style="margin-bottom:10px;">자주 가는 곳</label>
+      <div class="preset-row">
+        <button class="btn-preset" data-arsid="02190" data-route="147" data-label="집으로">
+          <span class="preset-emoji">🏠</span>
+          <span class="preset-name">집으로</span>
+          <span class="preset-sub">02190 · 147번</span>
+        </button>
+        <button class="btn-preset" data-arsid="04155" data-route="147" data-label="투썸으로">
+          <span class="preset-emoji">☕</span>
+          <span class="preset-name">투썸으로</span>
+          <span class="preset-sub">04155 · 147번</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="field">
         <label>프록시 서버 주소</label>
         <input type="text" id="apiBase" placeholder="https://내프로젝트.vercel.app">
@@ -267,6 +314,7 @@
 
   <!-- ===================== 모니터링 화면 ===================== -->
   <div id="monitor" class="hidden">
+    <div id="mPresetLabel" class="preset-tag hidden"></div>
     <div class="badge"><span class="dot"></span><span id="mRoute">506</span></div>
     <div class="stop-name">정류소 <span id="mArsId">23150</span></div>
 
@@ -382,6 +430,11 @@ function tickCountdown(intervalMs){
   $('mCountdown').textContent = `다음 확인까지 ${mm}:${ss}`;
 }
 
+const PRESET_LABELS = {
+  '02190_147': '🏠 집으로',
+  '04155_147': '☕ 투썸으로',
+};
+
 function startMonitoring(settings){
   $('setup').classList.add('hidden');
   $('monitor').classList.remove('hidden');
@@ -389,6 +442,11 @@ function startMonitoring(settings){
   $('mArsId').textContent = settings.arsId;
   $('mInterval').textContent = settings.interval + '분';
   $('log').innerHTML = '';
+
+  const presetKey = settings.arsId + '_' + settings.routeNum;
+  const presetLabel = PRESET_LABELS[presetKey];
+  $('mPresetLabel').textContent = presetLabel || '';
+  $('mPresetLabel').classList.toggle('hidden', !presetLabel);
 
   const intervalMs = Number(settings.interval) * 60 * 1000;
 
@@ -410,6 +468,26 @@ function stopMonitoring(){
   $('monitor').classList.add('hidden');
   $('setup').classList.remove('hidden');
 }
+
+document.querySelectorAll('.btn-preset').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const settings = {
+      apiBase: $('apiBase').value.trim(),
+      arsId: btn.dataset.arsid,
+      routeNum: btn.dataset.route,
+      interval: Number($('interval').value) || 3,
+    };
+    $('arsId').value = settings.arsId;
+    $('routeNum').value = settings.routeNum;
+    saveSettings(settings);
+
+    if('Notification' in window && Notification.permission === 'default'){
+      Notification.requestPermission();
+    }
+
+    startMonitoring(settings);
+  });
+});
 
 $('startBtn').addEventListener('click', () => {
   const settings = {
