@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { station, line } = req.query;
+  const { station, line, lines } = req.query;
   const key = process.env.SUBWAY_SERVICE_KEY;
 
   if (!key) {
@@ -74,8 +74,9 @@ export default async function handler(req, res) {
     }
 
     let items = data.realtimeArrivalList || [];
-    if (line) {
-      items = items.filter((it) => it.subwayId === line);
+    const lineList = (lines ? lines.split(',') : (line ? [line] : [])).filter(Boolean);
+    if (lineList.length) {
+      items = items.filter((it) => lineList.includes(it.subwayId));
     }
 
     const simplified = items.map((it) => ({
