@@ -751,7 +751,8 @@ function computeTrack(lineId, stationName, item){
   const i = order.indexOf(stationName);
   if(i < 0) return null;
 
-  const destMatch = (item.trainLineNm || '').match(/^(.*?)행/);
+  // "대화행" 처럼 일반적인 경우와 "응암순환(상선)행" 처럼 순환 표기가 붙는 6호선 특수 케이스 모두 처리
+  const destMatch = (item.trainLineNm || '').match(/^(.*?)(순환|행)/);
   const destName = destMatch ? destMatch[1].trim() : null;
   const destIndex = destName ? order.indexOf(destName) : -1;
   if(destIndex < 0) return null; // 목적지를 순서 배열에서 못 찾으면 방향 판별 불가 -> 그림 생략
