@@ -277,8 +277,60 @@
     font-size:13px;
     font-weight:700;
     color:var(--route-blue);
-    margin-bottom:6px;
+    margin-bottom:0;
   }
+
+  .monitor-top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
+    min-height:28px;
+  }
+  .btn-refresh{
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    background:#fff;
+    border:1.5px solid var(--line);
+    color:var(--navy);
+    font-size:16px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    margin-left:auto;
+    transition:transform .3s;
+  }
+  .btn-refresh:active{ background:#EAF2F9; border-color:var(--route-blue); }
+  .btn-refresh.spinning{ animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  html, body{ overscroll-behavior-y: contain; }
+
+  .pull-indicator{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    height:0;
+    overflow:hidden;
+    opacity:0;
+    transition:height .15s, opacity .15s;
+    color:var(--route-blue);
+    font-size:13px;
+    font-weight:600;
+  }
+  .pull-indicator.active{ opacity:1; }
+  .pull-spinner{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    border-top-color:var(--route-blue);
+  }
+  .pull-indicator.spinning .pull-spinner{ animation:spin .7s linear infinite; }
 
   /* ---- Monitor view : LED signage look ---- */
   .badge{
@@ -554,7 +606,14 @@
 
   <!-- ===================== 모니터링 화면 ===================== -->
   <div id="monitor" class="hidden">
-    <div id="mPresetLabel" class="preset-tag hidden"></div>
+    <div id="pullIndicator" class="pull-indicator">
+      <div class="pull-spinner"></div>
+      <span id="pullIndicatorText">당겨서 새로고침</span>
+    </div>
+    <div class="monitor-top-row">
+      <div id="mPresetLabel" class="preset-tag hidden"></div>
+      <button id="refreshBtn" class="btn-refresh" title="새로고침">↻</button>
+    </div>
     <div class="badge"><span class="dot"></span><span id="mRoute">506</span></div>
     <div class="stop-name"><span id="mLocationLabel">정류소</span> <span id="mArsId">23150</span></div>
 
@@ -591,6 +650,8 @@ const SETTINGS_KEY = 'busAlarmSettings';
 let timerId = null;
 let countdownId = null;
 let nextCheckAt = 0;
+let currentSettings = null;
+let refreshing = false;
 
 function loadSettings(){
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }
@@ -962,6 +1023,7 @@ function tickCountdown(intervalMs){
 }
 
 function startMonitoring(settings){
+  currentSettings = settings;
   $('setup').classList.add('hidden');
   $('monitor').classList.remove('hidden');
   $('log').innerHTML = '';
@@ -985,26 +1047,105 @@ function startMonitoring(settings){
   $('mPresetLabel').textContent = settings.presetLabel || '';
   $('mPresetLabel').classList.toggle('hidden', !settings.presetLabel);
 
-  const intervalMs = Number(settings.interval) * 60 * 1000;
+  restartTimer();
+}
 
-  checkArrivals(settings);
+function restartTimer(){
+  if(!currentSettings) return;
+  if(timerId) clearInterval(timerId);
+  if(countdownId) clearInterval(countdownId);
+
+  const intervalMs = Number(currentSettings.interval) * 60 * 1000;
+
+  checkArrivals(currentSettings);
   nextCheckAt = Date.now() + intervalMs;
 
   timerId = setInterval(() => {
-    checkArrivals(settings);
+    checkArrivals(currentSettings);
     nextCheckAt = Date.now() + intervalMs;
   }, intervalMs);
 
   countdownId = setInterval(() => tickCountdown(intervalMs), 1000);
 }
 
+async function manualRefresh(){
+  if(!currentSettings || refreshing) return;
+  refreshing = true;
+  $('refreshBtn').classList.add('spinning');
+  try{
+    await checkArrivals(currentSettings);
+  } finally {
+    refreshing = false;
+    $('refreshBtn').classList.remove('spinning');
+    // 다음 자동 확인 타이밍도 지금 시점 기준으로 재조정
+    const intervalMs = Number(currentSettings.interval) * 60 * 1000;
+    if(timerId) clearInterval(timerId);
+    nextCheckAt = Date.now() + intervalMs;
+    timerId = setInterval(() => {
+      checkArrivals(currentSettings);
+      nextCheckAt = Date.now() + intervalMs;
+    }, intervalMs);
+  }
+}
+
 function stopMonitoring(){
   if(timerId) clearInterval(timerId);
   if(countdownId) clearInterval(countdownId);
   timerId = null; countdownId = null;
+  currentSettings = null;
   $('monitor').classList.add('hidden');
   $('setup').classList.remove('hidden');
 }
+
+$('refreshBtn').addEventListener('click', manualRefresh);
+
+// ---- 당겨서 새로고침 (커스텀, 브라우저 기본 새로고침 대체) ----
+(function setupPullToRefresh(){
+  const monitorEl = $('monitor');
+  const indicator = $('pullIndicator');
+  const indicatorText = $('pullIndicatorText');
+  const THRESHOLD = 70;
+  let startY = null;
+  let pulling = false;
+
+  monitorEl.addEventListener('touchstart', (e) => {
+    if(monitorEl.classList.contains('hidden')) return;
+    if(window.scrollY > 0) return;
+    startY = e.touches[0].clientY;
+    pulling = false;
+  }, { passive: true });
+
+  monitorEl.addEventListener('touchmove', (e) => {
+    if(startY === null || refreshing) return;
+    const diff = e.touches[0].clientY - startY;
+    if(diff > 0 && window.scrollY === 0){
+      pulling = true;
+      const height = Math.min(diff * 0.5, 56);
+      indicator.style.height = height + 'px';
+      indicator.classList.toggle('active', height > 10);
+      indicatorText.textContent = diff * 0.5 > THRESHOLD ? '놓으면 새로고침' : '당겨서 새로고침';
+    }
+  }, { passive: true });
+
+  monitorEl.addEventListener('touchend', (e) => {
+    if(!pulling){ startY = null; return; }
+    const height = parseFloat(indicator.style.height) || 0;
+    if(height * 2 > THRESHOLD){
+      indicatorText.textContent = '새로고침 중…';
+      indicator.classList.add('spinning');
+      manualRefresh().then(() => {
+        indicator.classList.remove('spinning');
+        indicator.style.height = '0px';
+        indicator.classList.remove('active');
+      });
+    } else {
+      indicator.style.height = '0px';
+      indicator.classList.remove('active');
+    }
+    startY = null;
+    pulling = false;
+  }, { passive: true });
+})();
 
 $('startBtn').addEventListener('click', () => {
   const settings = {
