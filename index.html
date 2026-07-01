@@ -731,30 +731,44 @@ const STATION_ORDER = {
   1003: ['대화','주엽','정발산','마두','백석','대곡','화정','원당','원흥','삼송','지축','구파발','연신내','불광','녹번','홍제','무악재','독립문','경복궁','안국','종로3가','을지로3가','충무로','동대입구','약수','금호','옥수','압구정','신사','잠원','고속터미널','교대','남부터미널','양재','매봉','도곡','대치','학여울','대청','일원','수서','가락시장','경찰병원','오금'],
 };
 
-// 우리 역 기준 실제 도착 메시지에 담긴 '현재 위치 역명'을 이용해 전역/전전역을 계산.
-// (상행/하행 라벨의 실제 방향 규칙에 의존하지 않고, 역 순서 배열에서 인접한 역과 매칭되는지로 판단)
-function getTrackInfo(lineId, stationName, currentPosName){
+// 열차의 최종 목적지(trainLineNm의 'OO행')를 역 순서 배열에서 찾아 진행 방향을 판별.
+// 이 방식은 상행/하행 라벨의 실제 방향 규칙을 몰라도 항상 정확하게 동작함.
+function computeTrack(lineId, stationName, item){
   const order = STATION_ORDER[lineId];
-  if(!order || !currentPosName) return null;
+  if(!order) return null;
   const i = order.indexOf(stationName);
   if(i < 0) return null;
 
-  const leftPrev = order[i-1], leftPrevPrev = order[i-2];
-  const rightPrev = order[i+1], rightPrevPrev = order[i+2];
+  const destMatch = (item.trainLineNm || '').match(/^(.*?)행/);
+  const destName = destMatch ? destMatch[1].trim() : null;
+  const destIndex = destName ? order.indexOf(destName) : -1;
+  if(destIndex < 0) return null; // 목적지를 순서 배열에서 못 찾으면 방향 판별 불가 -> 그림 생략
 
-  if(currentPosName === leftPrev || currentPosName === leftPrevPrev){
-    return { prevPrev: leftPrevPrev || null, prev: leftPrev, trainAt: currentPosName === leftPrev ? 'prev' : 'prevPrev' };
+  const dir = destIndex < i ? -1 : 1; // 목적지 쪽으로 가는 방향
+  const prev = order[i - dir] || null;      // 전역 (목적지 반대쪽 = 열차가 온 방향)
+  const prevPrev = order[i - dir * 2] || null; // 전전역
+
+  const rawMsg = (item.arvlMsg2 || item.arvlMsg3 || '').trim();
+  let trainAt = null;
+
+  if(rawMsg.startsWith(stationName) && /(진입|도착)/.test(rawMsg)){
+    trainAt = 'here'; // 우리 역에 진입/도착 중
+  } else if(rawMsg.startsWith('전역')){
+    trainAt = 'prev'; // '전역 출발/진입/도착' - 전역이라는 표현 그대로 사용
+  } else {
+    const parsed = parseArrival(rawMsg);
+    if(parsed.dest === prev) trainAt = 'prev';
+    else if(parsed.dest === prevPrev) trainAt = 'prevPrev';
   }
-  if(currentPosName === rightPrev || currentPosName === rightPrevPrev){
-    return { prevPrev: rightPrevPrev || null, prev: rightPrev, trainAt: currentPosName === rightPrev ? 'prev' : 'prevPrev' };
-  }
-  return null;
+
+  if(!trainAt) return null; // 아직 2정거장보다 멀리 있으면 그림 생략 (텍스트만 표시)
+  return { prev, prevPrev, trainAt };
 }
 
 function buildTrackHtml(track, stationName){
   const dots = [];
   if(track.prevPrev) dots.push({ name: track.prevPrev, key:'prevPrev' });
-  dots.push({ name: track.prev, key:'prev' });
+  if(track.prev) dots.push({ name: track.prev, key:'prev' });
   dots.push({ name: stationName, key:'here' });
 
   const stopsHtml = dots.map((d) => `
@@ -1033,7 +1047,7 @@ function buildSubwayRow(lineId, isUp, item, stationName){
     nextText = parsed.dest ? `${parsed.dest} 방면` : '&nbsp;';
     time = parsed.time;
 
-    const track = getTrackInfo(lineId, stationName, parsed.dest);
+    const track = computeTrack(lineId, stationName, item);
     if(track) trackHtml = buildTrackHtml(track, stationName);
   }
 
