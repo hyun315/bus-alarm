@@ -125,10 +125,12 @@
 
   .preset-row{
     display:flex;
+    flex-wrap:wrap;
     gap:10px;
   }
   .btn-preset{
-    flex:1;
+    flex:1 1 calc(50% - 5px);
+    min-width:120px;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -146,6 +148,130 @@
   .preset-emoji{ font-size:24px; margin-bottom:2px; }
   .preset-name{ font-size:15px; font-weight:700; color:var(--navy); }
   .preset-sub{ font-size:11px; color:var(--grey); font-family:'DM Mono', monospace; }
+
+  .preset-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .btn-edit-toggle{
+    background:none;
+    border:none;
+    color:var(--route-blue);
+    font-size:13px;
+    font-weight:700;
+    padding:4px 6px;
+  }
+  .preset-row{ flex-wrap:wrap; }
+  .preset-row:empty{ display:none; }
+
+  .btn-preset{ position:relative; }
+  .btn-preset-remove{
+    position:absolute;
+    top:-6px;
+    right:-6px;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--danger);
+    color:#fff;
+    font-size:13px;
+    font-weight:800;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid #fff;
+  }
+  .btn-preset.shake{ animation: shake .3s; }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    25%{ transform:translateX(-2px) rotate(-1deg); }
+    75%{ transform:translateX(2px) rotate(1deg); }
+  }
+
+  .btn-add-preset{
+    width:100%;
+    margin-top:10px;
+    padding:12px;
+    background:#FAFBFC;
+    border:1.5px dashed var(--line);
+    border-radius:14px;
+    color:var(--route-blue);
+    font-weight:700;
+    font-size:14px;
+  }
+
+  .preset-form{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+  }
+  .type-toggle{
+    display:flex;
+    gap:8px;
+  }
+  .type-btn{
+    flex:1;
+    padding:10px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    background:#FAFBFC;
+    color:var(--grey);
+    font-weight:700;
+    font-size:14px;
+  }
+  .type-btn.active{
+    border-color:var(--route-blue);
+    background:#EAF2F9;
+    color:var(--route-blue);
+  }
+  #fLineGroup{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .line-chip{
+    --chip-color: var(--route-blue);
+    padding:8px 12px;
+    border-radius:999px;
+    border:1.5px solid var(--line);
+    background:#FAFBFC;
+    color:var(--grey);
+    font-size:13px;
+    font-weight:700;
+  }
+  .line-chip.active{
+    border-color:var(--chip-color);
+    background:var(--chip-color);
+    color:#fff;
+  }
+  select#fLine{
+    width:100%;
+    padding:12px 14px;
+    font-size:16px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    background:#FAFBFC;
+    color:var(--navy);
+    font-family:inherit;
+  }
+  .form-btn-row{
+    display:flex;
+    gap:8px;
+    margin-top:6px;
+  }
+  .form-btn-row button{
+    flex:1;
+    padding:12px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:14px;
+  }
+  .btn-form-delete{ background:#FDECEA; color:var(--danger); border:1.5px solid #F3C9C3; }
+  .btn-form-cancel{ background:#F3F6F9; color:var(--grey); border:1.5px solid var(--line); }
+  .btn-form-save{ background:var(--navy); color:#fff; border:none; }
 
   .preset-tag{
     font-size:13px;
@@ -239,6 +365,18 @@
   }
   .subway-dir-up{ background:var(--line3, #EF7C1C); }
   .subway-dir-down{ background:#3B4A5A; }
+  .subway-line-badge{
+    flex-shrink:0;
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    font-size:12px;
+    color:#fff;
+  }
   .subway-info{ flex:1; min-width:0; }
   .subway-dest{
     font-size:16px;
@@ -324,25 +462,59 @@
     </div>
 
     <div class="card">
-      <label style="margin-bottom:10px;">자주 가는 곳</label>
-      <div class="preset-row">
-        <button class="btn-preset" data-mode="bus" data-arsid="02190" data-route="147" data-label="집으로">
-          <span class="preset-emoji">🏠</span>
-          <span class="preset-name">집으로</span>
-          <span class="preset-sub">02190 · 147번</span>
-        </button>
-        <button class="btn-preset" data-mode="bus" data-arsid="04155" data-route="147" data-label="투썸으로">
-          <span class="preset-emoji">☕</span>
-          <span class="preset-name">투썸으로</span>
-          <span class="preset-sub">04155 · 147번</span>
-        </button>
+      <div class="preset-header">
+        <label style="margin-bottom:0;">자주 가는 곳</label>
+        <button class="btn-edit-toggle" id="editToggleBtn">편집</button>
       </div>
-      <div class="preset-row" style="margin-top:10px;">
-        <button class="btn-preset" data-mode="subway" data-station="금호" data-line="1003" data-label="금호역 3호선">
-          <span class="preset-emoji">🚇</span>
-          <span class="preset-name">금호역 3호선</span>
-          <span class="preset-sub">상행 · 하행 동시조회</span>
-        </button>
+      <div class="preset-row" id="presetContainer"></div>
+
+      <button class="btn-add-preset hidden" id="addPresetBtn">+ 새로 추가</button>
+
+      <!-- 추가/수정 폼 -->
+      <div class="preset-form hidden" id="presetForm">
+        <div class="field">
+          <label>종류</label>
+          <div class="type-toggle">
+            <button type="button" class="type-btn active" id="typeBusBtn" data-type="bus">🚌 버스</button>
+            <button type="button" class="type-btn" id="typeSubwayBtn" data-type="subway">🚇 지하철</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>아이콘 (이모지 1개)</label>
+          <input type="text" id="fEmoji" maxlength="4" placeholder="📍">
+        </div>
+        <div class="field">
+          <label>이름</label>
+          <input type="text" id="fLabel" placeholder="예: 회사로">
+        </div>
+
+        <div id="busFields">
+          <div class="field">
+            <label>정류소 고유번호 (arsId)</label>
+            <input type="text" id="fArsId" inputmode="numeric" placeholder="예: 23150">
+          </div>
+          <div class="field">
+            <label>버스 번호</label>
+            <input type="text" id="fRoute" placeholder="예: 147">
+          </div>
+        </div>
+
+        <div id="subwayFields" class="hidden">
+          <div class="field">
+            <label>역명</label>
+            <input type="text" id="fStation" placeholder="예: 금호">
+          </div>
+          <div class="field">
+            <label>호선 <span style="font-weight:400;color:var(--grey);">(환승역은 여러 개 선택 가능)</span></label>
+            <div id="fLineGroup"></div>
+          </div>
+        </div>
+
+        <div class="form-btn-row">
+          <button type="button" class="btn-form-delete hidden" id="fDeleteBtn">삭제</button>
+          <button type="button" class="btn-form-cancel" id="fCancelBtn">취소</button>
+          <button type="button" class="btn-form-save" id="fSaveBtn">저장</button>
+        </div>
       </div>
     </div>
 
@@ -394,22 +566,7 @@
     </div>
 
     <div class="subway-board hidden" id="subwaySignage">
-      <div class="subway-row" id="upRow">
-        <div class="subway-dir subway-dir-up">상행</div>
-        <div class="subway-info">
-          <div class="subway-dest" id="upDest">확인 중…</div>
-          <div class="subway-next" id="upNext">&nbsp;</div>
-        </div>
-        <div class="subway-time" id="upTime">-</div>
-      </div>
-      <div class="subway-row" id="downRow">
-        <div class="subway-dir subway-dir-down">하행</div>
-        <div class="subway-info">
-          <div class="subway-dest" id="downDest">확인 중…</div>
-          <div class="subway-next" id="downNext">&nbsp;</div>
-        </div>
-        <div class="subway-time" id="downTime">-</div>
-      </div>
+      <div id="subwayRows"></div>
       <div class="signage-updated" id="mUpdatedSubway">아직 확인 전</div>
     </div>
 
@@ -447,6 +604,187 @@ function fillSetupFromSettings(s){
   if(s.routeNum) $('routeNum').value = s.routeNum;
   if(s.interval) $('interval').value = s.interval;
 }
+
+// ===================== 자주 가는 곳 (프리셋) =====================
+const PRESETS_KEY = 'busAlarmPresets';
+const LINE_NAMES = {1001:'1호선',1002:'2호선',1003:'3호선',1004:'4호선',1005:'5호선',1006:'6호선',1007:'7호선',1008:'8호선',1009:'9호선'};
+const LINE_COLORS = {1001:'#0052A4',1002:'#00A84D',1003:'#EF7C1C',1004:'#00A5DE',1005:'#996CAC',1006:'#CD7C2F',1007:'#747F00',1008:'#E6186C',1009:'#BDB092'};
+
+const DEFAULT_PRESETS = [
+  { id:'d1', mode:'bus', emoji:'🏠', label:'집으로', arsId:'02190', routeNum:'147' },
+  { id:'d2', mode:'bus', emoji:'☕', label:'투썸으로', arsId:'04155', routeNum:'147' },
+  { id:'d3', mode:'subway', emoji:'🚇', label:'금호역', station:'금호', lines:['1003'] },
+];
+
+function loadPresets(){
+  try {
+    const raw = localStorage.getItem(PRESETS_KEY);
+    if(!raw) { savePresets(DEFAULT_PRESETS); return DEFAULT_PRESETS.slice(); }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : DEFAULT_PRESETS.slice();
+  } catch(e){ return DEFAULT_PRESETS.slice(); }
+}
+function savePresets(list){ localStorage.setItem(PRESETS_KEY, JSON.stringify(list)); }
+
+let presets = loadPresets();
+let editMode = false;
+let editingId = null;
+let formType = 'bus';
+let selectedLines = new Set(['1003']);
+
+function presetSubText(p){
+  if(p.mode === 'subway'){
+    const names = (p.lines || []).map(l => LINE_NAMES[l] || l).join('·');
+    return `${p.station} · ${names || '호선 미지정'}`;
+  }
+  return `${p.arsId} · ${p.routeNum}번`;
+}
+
+function renderPresets(){
+  const container = $('presetContainer');
+  container.innerHTML = '';
+  presets.forEach((p) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-preset';
+    btn.innerHTML = `
+      <span class="preset-emoji">${p.emoji || (p.mode === 'subway' ? '🚇' : '🚌')}</span>
+      <span class="preset-name">${p.label}</span>
+      <span class="preset-sub">${presetSubText(p)}</span>
+    `;
+    btn.addEventListener('click', () => {
+      if(editMode){ openForm(p); return; }
+      launchPreset(p);
+    });
+    container.appendChild(btn);
+  });
+}
+
+function launchPreset(p){
+  const apiBase = $('apiBase').value.trim();
+  let settings;
+  if(p.mode === 'subway'){
+    settings = { mode:'subway', apiBase, station:p.station, lines:(p.lines && p.lines.length ? p.lines : ['1003']), interval: Number($('interval').value) || 3, presetLabel: `${p.emoji || '🚇'} ${p.label}` };
+  } else {
+    settings = { mode:'bus', apiBase, arsId:p.arsId, routeNum:p.routeNum, interval: Number($('interval').value) || 3, presetLabel: `${p.emoji || '🚌'} ${p.label}` };
+    $('arsId').value = p.arsId;
+    $('routeNum').value = p.routeNum;
+  }
+  saveSettings(settings);
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+  startMonitoring(settings);
+}
+
+function renderLineChips(){
+  const group = $('fLineGroup');
+  group.innerHTML = '';
+  Object.keys(LINE_NAMES).forEach((lineId) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'line-chip' + (selectedLines.has(lineId) ? ' active' : '');
+    chip.textContent = LINE_NAMES[lineId];
+    chip.style.setProperty('--chip-color', LINE_COLORS[lineId]);
+    chip.addEventListener('click', () => {
+      if(selectedLines.has(lineId)) selectedLines.delete(lineId);
+      else selectedLines.add(lineId);
+      renderLineChips();
+    });
+    group.appendChild(chip);
+  });
+}
+
+function setFormType(type){
+  formType = type;
+  $('typeBusBtn').classList.toggle('active', type === 'bus');
+  $('typeSubwayBtn').classList.toggle('active', type === 'subway');
+  $('busFields').classList.toggle('hidden', type !== 'bus');
+  $('subwayFields').classList.toggle('hidden', type !== 'subway');
+}
+
+function openForm(preset){
+  editingId = preset ? preset.id : null;
+  $('presetForm').classList.remove('hidden');
+  $('fDeleteBtn').classList.toggle('hidden', !preset);
+
+  if(preset){
+    setFormType(preset.mode);
+    $('fEmoji').value = preset.emoji || '';
+    $('fLabel').value = preset.label || '';
+    if(preset.mode === 'subway'){
+      $('fStation').value = preset.station || '';
+      selectedLines = new Set(preset.lines && preset.lines.length ? preset.lines : ['1003']);
+    } else {
+      $('fArsId').value = preset.arsId || '';
+      $('fRoute').value = preset.routeNum || '';
+    }
+  } else {
+    setFormType('bus');
+    $('fEmoji').value = '';
+    $('fLabel').value = '';
+    $('fArsId').value = '';
+    $('fRoute').value = '';
+    $('fStation').value = '';
+    selectedLines = new Set(['1003']);
+  }
+  renderLineChips();
+  $('presetForm').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function closeForm(){
+  $('presetForm').classList.add('hidden');
+  editingId = null;
+}
+
+$('editToggleBtn').addEventListener('click', () => {
+  editMode = !editMode;
+  $('editToggleBtn').textContent = editMode ? '완료' : '편집';
+  $('addPresetBtn').classList.toggle('hidden', !editMode);
+  if(!editMode) closeForm();
+});
+
+$('addPresetBtn').addEventListener('click', () => openForm(null));
+$('typeBusBtn').addEventListener('click', () => setFormType('bus'));
+$('typeSubwayBtn').addEventListener('click', () => setFormType('subway'));
+$('fCancelBtn').addEventListener('click', closeForm);
+
+$('fDeleteBtn').addEventListener('click', () => {
+  if(!editingId) return;
+  presets = presets.filter(p => p.id !== editingId);
+  savePresets(presets);
+  renderPresets();
+  closeForm();
+});
+
+$('fSaveBtn').addEventListener('click', () => {
+  const label = $('fLabel').value.trim();
+  const emoji = $('fEmoji').value.trim();
+
+  if(!label){ alert('이름을 입력해주세요.'); return; }
+
+  let preset;
+  if(formType === 'subway'){
+    const station = $('fStation').value.trim();
+    const lines = Array.from(selectedLines);
+    if(!station){ alert('역명을 입력해주세요.'); return; }
+    if(!lines.length){ alert('호선을 하나 이상 선택해주세요.'); return; }
+    preset = { id: editingId || ('p' + Date.now()), mode:'subway', emoji, label, station, lines };
+  } else {
+    const arsId = $('fArsId').value.trim();
+    const routeNum = $('fRoute').value.trim();
+    if(!arsId || !routeNum){ alert('정류소 번호와 버스 번호를 입력해주세요.'); return; }
+    preset = { id: editingId || ('p' + Date.now()), mode:'bus', emoji, label, arsId, routeNum };
+  }
+
+  if(editingId){
+    presets = presets.map(p => p.id === editingId ? preset : p);
+  } else {
+    presets.push(preset);
+  }
+  savePresets(presets);
+  renderPresets();
+  closeForm();
+});
 
 function addLog(msg, isError){
   const log = $('log');
@@ -518,61 +856,100 @@ function parseArrival(msg){
   return { time: msg.trim(), dest: '' };
 }
 
-function setSubwayRow(prefix, item){
-  if(!item){
-    $(`${prefix}Dest`).textContent = '정보 없음';
-    $(`${prefix}Next`).textContent = '';
-    $(`${prefix}Time`).textContent = '-';
+function buildSubwayRow(item){
+  const row = document.createElement('div');
+  row.className = 'subway-row';
+
+  const lineColor = LINE_COLORS[item.subwayId] || 'var(--route-blue)';
+  const lineName = (LINE_NAMES[item.subwayId] || '').replace('호선', '');
+  const isUp = (item.updnLine || '').includes('상행');
+  const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
+  const dest = item.trainLineNm || parsed.dest || '';
+
+  row.innerHTML = `
+    <div class="subway-line-badge" style="background:${lineColor}">${lineName}</div>
+    <div class="subway-dir ${isUp ? 'subway-dir-up' : 'subway-dir-down'}">${isUp ? '상행' : '하행'}</div>
+    <div class="subway-info">
+      <div class="subway-dest">${dest}</div>
+      <div class="subway-next">${parsed.dest ? parsed.dest + ' 방면' : '&nbsp;'}</div>
+    </div>
+    <div class="subway-time">${parsed.time}</div>
+  `;
+  return row;
+}
+
+function renderSubwayRows(items, errorMsg){
+  const container = $('subwayRows');
+  container.innerHTML = '';
+
+  if(errorMsg){
+    const row = document.createElement('div');
+    row.className = 'subway-row';
+    row.innerHTML = `<div class="subway-info"><div class="subway-dest" style="color:var(--amber)">오류</div><div class="subway-next">${errorMsg}</div></div>`;
+    container.appendChild(row);
     return;
   }
-  const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
-  $(`${prefix}Dest`).textContent = item.trainLineNm || parsed.dest || '';
-  $(`${prefix}Next`).textContent = parsed.dest ? `${parsed.dest} 방면` : '';
-  $(`${prefix}Time`).textContent = parsed.time;
+
+  if(!items.length){
+    const row = document.createElement('div');
+    row.className = 'subway-row';
+    row.innerHTML = `<div class="subway-info"><div class="subway-dest">정보 없음</div></div>`;
+    container.appendChild(row);
+    return;
+  }
+
+  // 호선 -> 상행/하행 순서로 정렬
+  const sorted = items.slice().sort((a, b) => {
+    if(a.subwayId !== b.subwayId) return a.subwayId.localeCompare(b.subwayId);
+    return (a.updnLine || '').includes('상행') ? -1 : 1;
+  });
+  sorted.forEach(item => container.appendChild(buildSubwayRow(item)));
 }
 
 async function checkSubway(settings){
   const base = settings.apiBase ? settings.apiBase.replace(/\/$/, '') : '';
-  const url = `${base}/api/subway?station=${encodeURIComponent(settings.station)}&line=${encodeURIComponent(settings.line)}`;
+  const lines = (settings.lines && settings.lines.length ? settings.lines : ['1003']).join(',');
+  const url = `${base}/api/subway?station=${encodeURIComponent(settings.station)}&lines=${encodeURIComponent(lines)}`;
 
   try{
     const res = await fetch(url);
     const data = await res.json();
 
     if(!data.ok){
-      setSubwayRow('up', null);
-      setSubwayRow('down', null);
-      $('upDest').textContent = '오류';
-      $('upNext').textContent = data.error || '알 수 없는 오류';
+      renderSubwayRows([], data.error || '알 수 없는 오류');
       addLog(data.error || '조회 실패', true);
       return;
     }
 
     const items = data.items || [];
-    const up = items.find(it => (it.updnLine || '').includes('상행'));
-    const down = items.find(it => (it.updnLine || '').includes('하행'));
+    // 각 (호선, 방향) 조합 중 가장 빠른 것 하나씩만 표시
+    const grouped = {};
+    items.forEach(it => {
+      const key = it.subwayId + '_' + (it.updnLine || '');
+      if(!grouped[key]) grouped[key] = it;
+    });
+    const rowItems = Object.values(grouped);
 
-    if(!up && !down){
-      setSubwayRow('up', null);
-      setSubwayRow('down', null);
+    if(!rowItems.length){
+      renderSubwayRows([], null);
       addLog('지하철 도착정보 없음', true);
       return;
     }
 
-    setSubwayRow('up', up);
-    setSubwayRow('down', down);
+    renderSubwayRows(rowItems, null);
     $('mUpdatedSubway').textContent = `${new Date().toTimeString().slice(0,8)} 기준`;
 
-    const upSummary = up ? (up.arvlMsg2 || up.arvlMsg3 || '정보 없음') : '정보 없음';
-    const downSummary = down ? (down.arvlMsg2 || down.arvlMsg3 || '정보 없음') : '정보 없음';
-    addLog(`상행 ${upSummary} · 하행 ${downSummary}`);
-    notify(`🚇 ${settings.station}역`, `상행 ${upSummary} / 하행 ${downSummary}`);
+    const summary = rowItems.map(it => {
+      const dir = (it.updnLine || '').includes('상행') ? '상행' : '하행';
+      const msg = it.arvlMsg2 || it.arvlMsg3 || '정보 없음';
+      return `${LINE_NAMES[it.subwayId] || it.subwayId} ${dir} ${msg}`;
+    }).join(' · ');
+
+    addLog(summary);
+    notify(`🚇 ${settings.station}역`, summary);
 
   }catch(e){
-    setSubwayRow('up', null);
-    setSubwayRow('down', null);
-    $('upDest').textContent = '연결 실패';
-    $('upNext').textContent = '프록시 서버 주소를 확인해주세요';
+    renderSubwayRows([], '프록시 서버 주소를 확인해주세요');
     addLog('네트워크 오류: ' + e.message, true);
   }
 }
@@ -589,38 +966,29 @@ function tickCountdown(intervalMs){
   $('mCountdown').textContent = `다음 확인까지 ${mm}:${ss}`;
 }
 
-const PRESET_LABELS = {
-  'bus_02190_147': '🏠 집으로',
-  'bus_04155_147': '☕ 투썸으로',
-  'subway_금호_1003': '🚇 금호역 3호선',
-};
-
 function startMonitoring(settings){
   $('setup').classList.add('hidden');
   $('monitor').classList.remove('hidden');
   $('log').innerHTML = '';
 
-  let presetKey;
   if(settings.mode === 'subway'){
-    $('mRoute').textContent = '3호선';
+    const lineText = (settings.lines || []).map(l => LINE_NAMES[l] || l).join('·');
+    $('mRoute').textContent = lineText || '지하철';
     $('mLocationLabel').textContent = '지하철역';
     $('mArsId').textContent = settings.station + '역';
-    presetKey = `subway_${settings.station}_${settings.line}`;
     $('busSignage').classList.add('hidden');
     $('subwaySignage').classList.remove('hidden');
   } else {
     $('mRoute').textContent = settings.routeNum + '번';
     $('mLocationLabel').textContent = '정류소';
     $('mArsId').textContent = settings.arsId;
-    presetKey = `bus_${settings.arsId}_${settings.routeNum}`;
     $('subwaySignage').classList.add('hidden');
     $('busSignage').classList.remove('hidden');
   }
   $('mInterval').textContent = settings.interval + '분';
 
-  const presetLabel = PRESET_LABELS[presetKey];
-  $('mPresetLabel').textContent = presetLabel || '';
-  $('mPresetLabel').classList.toggle('hidden', !presetLabel);
+  $('mPresetLabel').textContent = settings.presetLabel || '';
+  $('mPresetLabel').classList.toggle('hidden', !settings.presetLabel);
 
   const intervalMs = Number(settings.interval) * 60 * 1000;
 
@@ -642,42 +1010,6 @@ function stopMonitoring(){
   $('monitor').classList.add('hidden');
   $('setup').classList.remove('hidden');
 }
-
-document.querySelectorAll('.btn-preset').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const mode = btn.dataset.mode || 'bus';
-    const apiBase = $('apiBase').value.trim();
-    let settings;
-
-    if(mode === 'subway'){
-      settings = {
-        mode: 'subway',
-        apiBase,
-        station: btn.dataset.station,
-        line: btn.dataset.line,
-        interval: Number($('interval').value) || 3,
-      };
-    } else {
-      settings = {
-        mode: 'bus',
-        apiBase,
-        arsId: btn.dataset.arsid,
-        routeNum: btn.dataset.route,
-        interval: Number($('interval').value) || 3,
-      };
-      $('arsId').value = settings.arsId;
-      $('routeNum').value = settings.routeNum;
-    }
-
-    saveSettings(settings);
-
-    if('Notification' in window && Notification.permission === 'default'){
-      Notification.requestPermission();
-    }
-
-    startMonitoring(settings);
-  });
-});
 
 $('startBtn').addEventListener('click', () => {
   const settings = {
@@ -702,7 +1034,8 @@ $('startBtn').addEventListener('click', () => {
 
 $('stopBtn').addEventListener('click', stopMonitoring);
 
-// 초기 로드: 저장된 설정 채워두기 (자동시작은 하지 않음 - 사용자가 다시 확인 후 시작)
+// 초기 로드
+renderPresets();
 fillSetupFromSettings(loadSettings());
 </script>
 </body>
