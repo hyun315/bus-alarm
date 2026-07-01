@@ -348,9 +348,12 @@ async function checkBus(settings){
     const match = items.find(it => (it.rtNm || '').trim() === settings.routeNum.trim());
 
     if(!match){
+      const available = items.map(it => it.rtNm).filter(Boolean);
       $('mMsg').textContent = '정보 없음';
-      $('mSub').textContent = `이 정류소에서 ${settings.routeNum}번 노선을 찾지 못했어요`;
-      addLog(`${settings.routeNum}번 노선 정보 없음`, true);
+      $('mSub').textContent = available.length
+        ? `이 정류소를 지나는 노선: ${available.join(', ')}`
+        : '이 정류소에 경유 노선 정보가 아예 없어요 (정류소 번호를 확인해주세요)';
+      addLog(`${settings.routeNum}번 노선 정보 없음 (경유노선 ${available.length}개 확인됨)`, true);
       return;
     }
 
