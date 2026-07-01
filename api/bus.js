@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   // 주의: 이 API는 파라미터명 대소문자를 구분합니다 (ServiceKey, 소문자 serviceKey 아님)
-  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUidItem?ServiceKey=${key}&arsId=${encodeURIComponent(
+  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?ServiceKey=${key}&arsId=${encodeURIComponent(
     arsId
   )}`;
 
