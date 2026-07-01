@@ -856,29 +856,37 @@ function parseArrival(msg){
   return { time: msg.trim(), dest: '' };
 }
 
-function buildSubwayRow(item){
+function buildSubwayRow(lineId, isUp, item){
   const row = document.createElement('div');
   row.className = 'subway-row';
 
-  const lineColor = LINE_COLORS[item.subwayId] || 'var(--route-blue)';
-  const lineName = (LINE_NAMES[item.subwayId] || '').replace('호선', '');
-  const isUp = (item.updnLine || '').includes('상행');
-  const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
-  const dest = item.trainLineNm || parsed.dest || '';
+  const lineColor = LINE_COLORS[lineId] || 'var(--route-blue)';
+  const lineName = (LINE_NAMES[lineId] || '').replace('호선', '');
+
+  let dest = '정보 없음';
+  let nextText = '&nbsp;';
+  let time = '-';
+
+  if(item){
+    const parsed = parseArrival(item.arvlMsg2 || item.arvlMsg3);
+    dest = item.trainLineNm || parsed.dest || '정보 없음';
+    nextText = parsed.dest ? `${parsed.dest} 방면` : '&nbsp;';
+    time = parsed.time;
+  }
 
   row.innerHTML = `
     <div class="subway-line-badge" style="background:${lineColor}">${lineName}</div>
     <div class="subway-dir ${isUp ? 'subway-dir-up' : 'subway-dir-down'}">${isUp ? '상행' : '하행'}</div>
     <div class="subway-info">
       <div class="subway-dest">${dest}</div>
-      <div class="subway-next">${parsed.dest ? parsed.dest + ' 방면' : '&nbsp;'}</div>
+      <div class="subway-next">${nextText}</div>
     </div>
-    <div class="subway-time">${parsed.time}</div>
+    <div class="subway-time">${time}</div>
   `;
   return row;
 }
 
-function renderSubwayRows(items, errorMsg){
+function renderSubwayRows(lineIds, grouped, errorMsg){
   const container = $('subwayRows');
   container.innerHTML = '';
 
@@ -890,66 +898,53 @@ function renderSubwayRows(items, errorMsg){
     return;
   }
 
-  if(!items.length){
-    const row = document.createElement('div');
-    row.className = 'subway-row';
-    row.innerHTML = `<div class="subway-info"><div class="subway-dest">정보 없음</div></div>`;
-    container.appendChild(row);
-    return;
-  }
-
-  // 호선 -> 상행/하행 순서로 정렬
-  const sorted = items.slice().sort((a, b) => {
-    if(a.subwayId !== b.subwayId) return a.subwayId.localeCompare(b.subwayId);
-    return (a.updnLine || '').includes('상행') ? -1 : 1;
+  // 선택한 모든 호선에 대해 상행/하행 두 줄씩 항상 표시 (데이터 없으면 '정보 없음')
+  lineIds.forEach(lineId => {
+    container.appendChild(buildSubwayRow(lineId, true, grouped[`${lineId}_up`]));
+    container.appendChild(buildSubwayRow(lineId, false, grouped[`${lineId}_down`]));
   });
-  sorted.forEach(item => container.appendChild(buildSubwayRow(item)));
 }
 
 async function checkSubway(settings){
   const base = settings.apiBase ? settings.apiBase.replace(/\/$/, '') : '';
-  const lines = (settings.lines && settings.lines.length ? settings.lines : ['1003']).join(',');
-  const url = `${base}/api/subway?station=${encodeURIComponent(settings.station)}&lines=${encodeURIComponent(lines)}`;
+  const lineIds = settings.lines && settings.lines.length ? settings.lines : ['1003'];
+  const url = `${base}/api/subway?station=${encodeURIComponent(settings.station)}&lines=${encodeURIComponent(lineIds.join(','))}`;
 
   try{
     const res = await fetch(url);
     const data = await res.json();
 
     if(!data.ok){
-      renderSubwayRows([], data.error || '알 수 없는 오류');
+      renderSubwayRows(lineIds, {}, data.error || '알 수 없는 오류');
       addLog(data.error || '조회 실패', true);
       return;
     }
 
     const items = data.items || [];
-    // 각 (호선, 방향) 조합 중 가장 빠른 것 하나씩만 표시
+    // (호선, 방향) 조합별로 가장 빠른 것 하나씩만 저장. 상/하행 판정은 updnLine 문자열 기준.
     const grouped = {};
     items.forEach(it => {
-      const key = it.subwayId + '_' + (it.updnLine || '');
+      const isUp = (it.updnLine || '').includes('상행');
+      const key = `${it.subwayId}_${isUp ? 'up' : 'down'}`;
       if(!grouped[key]) grouped[key] = it;
     });
-    const rowItems = Object.values(grouped);
 
-    if(!rowItems.length){
-      renderSubwayRows([], null);
-      addLog('지하철 도착정보 없음', true);
-      return;
-    }
-
-    renderSubwayRows(rowItems, null);
+    renderSubwayRows(lineIds, grouped, null);
     $('mUpdatedSubway').textContent = `${new Date().toTimeString().slice(0,8)} 기준`;
 
-    const summary = rowItems.map(it => {
-      const dir = (it.updnLine || '').includes('상행') ? '상행' : '하행';
-      const msg = it.arvlMsg2 || it.arvlMsg3 || '정보 없음';
-      return `${LINE_NAMES[it.subwayId] || it.subwayId} ${dir} ${msg}`;
-    }).join(' · ');
+    const summary = Object.keys(grouped).length
+      ? Object.entries(grouped).map(([key, it]) => {
+          const [lineId, dirKey] = key.split('_');
+          const msg = it.arvlMsg2 || it.arvlMsg3 || '정보 없음';
+          return `${LINE_NAMES[lineId] || lineId} ${dirKey === 'up' ? '상행' : '하행'} ${msg}`;
+        }).join(' · ')
+      : '지하철 도착정보 없음';
 
-    addLog(summary);
-    notify(`🚇 ${settings.station}역`, summary);
+    addLog(summary, !Object.keys(grouped).length);
+    if(Object.keys(grouped).length) notify(`🚇 ${settings.station}역`, summary);
 
   }catch(e){
-    renderSubwayRows([], '프록시 서버 주소를 확인해주세요');
+    renderSubwayRows(lineIds, {}, '프록시 서버 주소를 확인해주세요');
     addLog('네트워크 오류: ' + e.message, true);
   }
 }
