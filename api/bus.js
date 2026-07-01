@@ -45,15 +45,19 @@ export default async function handler(req, res) {
     const upstream = await fetch(url);
     const xml = await upstream.text();
 
+    if (req.query.debug) {
+      return res.status(200).json({ ok: true, debug: true, status: upstream.status, raw: xml.slice(0, 3000) });
+    }
+
     const headerCd = getTag(xml, 'headerCd');
     const headerMsg = getTag(xml, 'headerMsg');
 
     if (headerCd && headerCd !== '0') {
-      return res.status(502).json({ ok: false, error: headerMsg || '버스 API 오류', code: headerCd });
+      return res.status(502).json({ ok: false, error: headerMsg || '버스 API 오류', code: headerCd, raw: xml.slice(0, 500) });
     }
 
     const items = parseItems(xml);
-    return res.status(200).json({ ok: true, items });
+    return res.status(200).json({ ok: true, items, rawLen: xml.length, headerCd });
   } catch (e) {
     return res.status(500).json({ ok: false, error: '버스 API 호출 실패', detail: String(e) });
   }
