@@ -48,8 +48,8 @@ export default async function handler(req, res) {
   }
 
   const trimmedKey = key.trim();
-  // 주의: 이 API는 파라미터명 대소문자를 구분합니다 (ServiceKey, 소문자 serviceKey 아님)
-  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?ServiceKey=${trimmedKey}&arsId=${encodeURIComponent(
+  // 서울시 API가 게이트웨이를 변경한 것으로 보여 파라미터명을 대소문자 둘 다 포함해서 전송 (안전하게)
+  const url = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?serviceKey=${trimmedKey}&ServiceKey=${trimmedKey}&arsId=${encodeURIComponent(
     arsId
   )}`;
 
@@ -80,6 +80,19 @@ export default async function handler(req, res) {
           preview: key.slice(0, 6) + '...' + key.slice(-4),
         },
       });
+    }
+
+    // 서울시 API가 JSON 형식의 에러를 줄 수도 있어서(게이트웨이 변경 대응) 우선 확인
+    const trimmedXml = xml.trim();
+    if (trimmedXml.startsWith('{')) {
+      try {
+        const asJson = JSON.parse(trimmedXml);
+        if (asJson.error || asJson.message) {
+          return res.status(502).json({ ok: false, error: asJson.message || asJson.error || 'API 오류', raw: xml.slice(0, 500) });
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 무시하고 아래 XML 파싱 로직으로 계속 진행
+      }
     }
 
     const headerCd = getTag(xml, 'headerCd');
